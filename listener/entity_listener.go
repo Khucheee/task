@@ -53,7 +53,7 @@ func GetEntityListener() (EntityListener, error) {
 	}
 
 	//инициализируем инсстанс листенера
-	entityListenerInstance := &entityListener{reader: reader, stopChannel: make(chan struct{}), cache: cacheConnect}
+	entityListenerInstance = &entityListener{reader: reader, stopChannel: make(chan struct{}), cache: cacheConnect}
 	entityRepository, err := repository.GetEntityRepository()
 	entityListenerInstance.repository = entityRepository
 	if err != nil {

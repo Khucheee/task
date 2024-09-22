@@ -4,7 +4,6 @@ import (
 	"context"
 	"customers_kuber/cache"
 	"customers_kuber/listener"
-	"customers_kuber/logger"
 	"customers_kuber/model"
 	"customers_kuber/producer"
 	"customers_kuber/repository"
@@ -100,7 +99,6 @@ func (service *entityService) GetAllEntities(ctx context.Context, pathForCache s
 
 	//обращаемся к кэшу, если кэш есть, возвращаем данные
 	if entities := service.cache.GetCache(ctx); entities != nil {
-		slog.InfoContext(logger.WithLogValues(ctx, entities), "service received not nil cache, returning values from cache")
 		return entities, nil
 	}
 
