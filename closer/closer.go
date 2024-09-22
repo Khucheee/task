@@ -29,14 +29,14 @@ func InitGracefulShutdown() *sync.WaitGroup {
 
 func CtrlC() {
 	slog.Debug("func CtrlC started")
-	timeout := config.GracefulShutdownTimeoutSec
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(timeout))
-	defer cancel()
+	//timeout := config.GracefulShutdownTimeoutSec
 	sigChan := make(chan os.Signal, 1)
 	slog.Debug("channel for catching ctrl+c created")
 	signal.Notify(sigChan, syscall.SIGINT)
 	slog.Debug("channel was set for receiving SIGINT signal, waiting for signal")
 	<-sigChan
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(config.GracefulShutdownTimeoutSec))
+	defer cancel()
 	slog.Debug("signal from sigChan received, starting graceful shutdown")
 	go func() {
 		<-ctx.Done()

@@ -25,7 +25,7 @@ var ElasticsearchHost string
 var KibanaHost string
 var KibanaPort string
 var WorkersCount string
-var RepositoryRetries string
+var RepositoryRetries int
 var KafkaEnabled bool
 var GracefulShutdownTimeoutSec int
 var LoggingLevel int
@@ -35,6 +35,7 @@ var RedisDataExpirationSec int
 //если приложение поднято в кубере, то будут использоваться переменные окружения из configmap и secrets
 
 func SetConfig() {
+	//todo надо тут прибраться
 	Kuber = os.Getenv("kuber")
 
 	if KafkaHost = os.Getenv("kafkaHost"); KafkaHost == "" {
@@ -88,8 +89,11 @@ func SetConfig() {
 	if WorkersCount = os.Getenv("workersCount"); WorkersCount == "" {
 		WorkersCount = "15"
 	}
-	if RepositoryRetries = os.Getenv("repositoryRetries"); RepositoryRetries == "" {
-		RepositoryRetries = "3"
+	retries, err := strconv.Atoi(os.Getenv("repositoryRetries"))
+	if err != nil {
+		RepositoryRetries = 3
+	} else {
+		RepositoryRetries = retries
 	}
 	timeout, err := strconv.Atoi(os.Getenv("gracefulShutdownTimeoutSec"))
 	if err != nil {
@@ -110,7 +114,7 @@ func SetConfig() {
 	if LoggingLevelString == "error" {
 		LoggingLevel = 8
 	}
-	LogSourceEnabledString := os.Getenv("loggingLevel")
+	LogSourceEnabledString := os.Getenv("logSourceEnabled")
 	if LogSourceEnabledString == "true" {
 		LogSourceEnabled = true
 	}

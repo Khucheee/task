@@ -32,7 +32,7 @@ func Logging() gin.HandlerFunc {
 		handlingTime := time.Since(startHandlingTime)
 
 		//логируем
-		slog.Info(
+		slog.Debug(
 			"incoming request",
 			"Method", ctx.Request.Method,
 			"host", ctx.Request.Host,

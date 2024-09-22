@@ -17,7 +17,7 @@ import (
 var entityRepositoryInstance *entityRepository
 
 type EntityRepository interface {
-	SaveEntity(e model.Entity) error
+	SaveEntity(e model.Entity)
 	GetEntities() ([]model.Entity, error)
 	UpdateEntity(update model.Entity) error
 	DeleteEntity(uuid2 uuid.UUID) error
@@ -71,14 +71,19 @@ func GetEntityRepository() (EntityRepository, error) {
 	return entityRepositoryInstance, nil
 }
 
-func (repository *entityRepository) SaveEntity(e model.Entity) error {
+func (repository *entityRepository) SaveEntity(entity model.Entity) {
 	//сохраняю Entity в базу
-	result := repository.db.Create(&e)
-	if result.Error != nil {
-		return fmt.Errorf("failed to save entity into repository: %s", result.Error)
+	ctx := context.Background()
+	for i := 0; i <= config.RepositoryRetries; i++ {
+		if err := repository.db.Create(&entity).Error; err != nil {
+			slog.ErrorContext(
+				logger.WithLogError(ctx, err),
+				"listener failed trying to save entity, retry "+string(i)+" of "+string(config.RepositoryRetries))
+			continue
+		}
+		slog.Info("entity successfully saved to repository")
+		break
 	}
-	slog.Info("entity successfully saved to repository")
-	return nil
 }
 
 func (repository *entityRepository) GetEntities() ([]model.Entity, error) {

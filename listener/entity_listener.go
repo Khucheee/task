@@ -12,8 +12,6 @@ import (
 	"fmt"
 	"github.com/segmentio/kafka-go"
 	"log/slog"
-	"strconv"
-	"time"
 )
 
 var entityListenerInstance *entityListener
@@ -23,10 +21,11 @@ type EntityListener interface {
 }
 
 type entityListener struct {
-	reader     *kafka.Reader
-	repository repository.EntityRepository
-	stopSignal bool
-	cache      cache.EntityCache
+	reader      *kafka.Reader
+	repository  repository.EntityRepository
+	stopSignal  bool
+	stopChannel chan struct{}
+	cache       cache.EntityCache
 }
 
 func GetEntityListener() (EntityListener, error) {
@@ -54,7 +53,7 @@ func GetEntityListener() (EntityListener, error) {
 	}
 
 	//инициализируем инсстанс листенера
-	entityListenerInstance := &entityListener{reader: reader, stopSignal: false, cache: cacheConnect}
+	entityListenerInstance := &entityListener{reader: reader, stopChannel: make(chan struct{}), cache: cacheConnect}
 	entityRepository, err := repository.GetEntityRepository()
 	entityListenerInstance.repository = entityRepository
 	if err != nil {
@@ -63,10 +62,10 @@ func GetEntityListener() (EntityListener, error) {
 
 	//передаем функцию закрытия в клозер для graceful shutdown
 	closer.CloseFunctions = append(closer.CloseFunctions, func() {
-		entityListenerInstance.stopSignal = true
+		close(entityListenerInstance.stopChannel)
+		//entityListenerInstance.stopSignal = true
 		if err := entityListenerInstance.reader.Close(); err != nil {
-			ctx = logger.WithLogError(ctx, err)
-			slog.ErrorContext(ctx, "failed to close listener")
+			slog.ErrorContext(logger.WithLogError(ctx, err), "failed to close listener")
 			return
 		}
 		slog.Info("entityListener closed successfully")
@@ -75,47 +74,31 @@ func GetEntityListener() (EntityListener, error) {
 }
 
 func (listener *entityListener) StartListening() {
-	numRetries, err := strconv.Atoi(config.RepositoryRetries)
-	if err != nil {
-		slog.ErrorContext(
-			logger.WithLogError(context.Background(), err),
-			"failed to get config.RepositoryRetries in listener")
-		numRetries = 3
-	}
-	//todo переписать на использование каналов
 	for {
-		if listener.stopSignal == true {
+		select {
+		case <-listener.stopChannel:
 			break
-		}
-		time.Sleep(time.Second * 1)
-		ctx := context.Background()
-		msg, err := listener.reader.ReadMessage(ctx)
-		if err != nil {
-			if err.Error() == "fetching message: EOF" {
+		default:
+			ctx := context.Background()
+			msg, err := listener.reader.ReadMessage(ctx)
+			if err != nil {
+				if err.Error() == "fetching message: EOF" {
+					continue
+				}
+				slog.ErrorContext(logger.WithLogError(ctx, err), "failed to read message from kafka in listener")
 				continue
 			}
-			slog.ErrorContext(logger.WithLogError(ctx, err), "failed to read message from kafka in listener")
-			continue
-		}
 
-		//парсю полученную json в структуру Entity
-		var entity model.Entity
-		err = json.Unmarshal(msg.Value, &entity)
-		if err != nil {
-			slog.ErrorContext(logger.WithLogError(ctx, err), "failed to deserialize message from kafka in listener")
-			continue
-		}
-		slog.InfoContext(logger.WithLogValues(ctx, entity), "listener received message from kafka")
-
-		//сохраняю Entity в базу
-		for i := 0; i <= numRetries; i++ {
-			if err = listener.repository.SaveEntity(entity); err == nil {
-				break
+			//парсю полученную json в структуру Entity
+			var entity model.Entity
+			err = json.Unmarshal(msg.Value, &entity)
+			if err != nil {
+				slog.ErrorContext(logger.WithLogError(ctx, err), "failed to deserialize message from kafka in listener")
+				continue
 			}
-			slog.ErrorContext(
-				logger.WithLogError(ctx, err),
-				"listener failed trying to save entity, retry "+string(i)+" of "+string(numRetries))
+			slog.Info("listener received message from kafka")
+			listener.repository.SaveEntity(entity)
+			listener.cache.ClearCache(ctx)
 		}
-		listener.cache.ClearCache(ctx)
 	}
 }

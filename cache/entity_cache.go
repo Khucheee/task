@@ -136,17 +136,3 @@ func (cache *entityCache) SetPath(path string) {
 	cache.path = path
 	slog.Debug("cache path was set", "cache_path", path)
 }
-
-/*
-func (cache *entityCache) DeleteEntity(entity model.Entity) {
-	key := fmt.Sprintf("entity_%s", cache.path)
-	marshalledEntity, err := json.Marshal(entity)
-	if err != nil {
-		log.Println("failed to marshal entity into json while deleting cache: ", err)
-	}
-	err = cache.connect.SRem(context.Background(), key, marshalledEntity).Err()
-	if err != nil {
-		log.Println("error while deleting value from cache: ", err)
-	}
-}
-*/
