@@ -4,6 +4,7 @@ import (
 	"context"
 	"customers_kuber/closer"
 	"customers_kuber/logger"
+	"customers_kuber/middleware"
 	"customers_kuber/model"
 	"customers_kuber/service"
 	"errors"
@@ -58,7 +59,7 @@ func GetEntityController() EntityController {
 func (controller *entityController) Route(ctx context.Context) {
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(Logging())
+	router.Use(middleware.Logging())
 	router.GET("/getAll", controller.getAllEntities)
 	router.POST("/create", controller.saveEntity)
 	router.PUT("/:id", controller.updateEntity)
